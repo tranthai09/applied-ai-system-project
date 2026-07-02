@@ -54,6 +54,26 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 #   ...
 ```
 
+```
+Today's Schedule
+================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:30 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Tasks are sorted by priority, then due time, then duration.
+Monday: 6 task(s), 0 completed, 6 pending.
+Tuesday: 6 task(s), 0 completed, 6 pending.
+Wednesday: 6 task(s), 0 completed, 6 pending.
+Thursday: 6 task(s), 0 completed, 6 pending.
+Friday: 6 task(s), 0 completed, 6 pending.
+Saturday: 6 task(s), 0 completed, 6 pending.
+Sunday: 6 task(s), 0 completed, 6 pending.
+```
+
 ## 🧪 Testing PawPal+
 
 ```bash
