@@ -55,6 +55,8 @@ One change that needs to be added is to state relationships explicitly such as f
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+One tradeoff is that the scheudler builds the week as a repeating pattern rather than real calendar dates so it just copies the daily task into one of the 7-day slots without actually knowing today's date, tomorrow's date and so on. It isn't accounting for specific dates like holidays like July 4th where the tasks could change or be lighter for the day. Thus we would need the separate helper function (tasks_due_on) to check that each task's actual due date is direct. The trade off is we have less code and it's easier to reason but the cost of the schedule being a typical week simulation rather than an actual accurate calendar.
+
 ---
 
 ## 3. AI Collaboration
