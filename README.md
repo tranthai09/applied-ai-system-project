@@ -82,12 +82,96 @@ pytest
 
 # Run with coverage:
 pytest --cov
+
+# Bash command
+python -m pytest
+
+
+The tests in `tests/test_pawpal.py` cover the core scheduling behaviors:
+
+- **Sorting** — tasks are ordered chronologically by due time (handling mixed time formats and missing times), with priority taking precedence over time.
+- **Recurrence** — completing a daily task spawns a new occurrence due the next day, completing a weekly task spawns one due the next week, and one-off tasks don't recur.
+- **Conflict detection** — overlapping due times (including identical times and overlaps spanning midnight) are flagged, back-to-back tasks are not, and completed tasks are excluded from conflict checks.
+- **Edge cases** — a pet with no tasks, an owner with no pets/tasks, and generating an explanation before any schedule exists.
+
+
 ```
+
+Confidence Level: 5 stars
+
 
 Sample test output:
 
+Today's Schedule (priority, then time, then duration)
+=====================================================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Today's Schedule (sorted by time only)
+======================================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Rex's Tasks Only
+================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Completed Tasks
+===============
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+
+Pending Tasks
+=============
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Conflict Check
+==============
+Warning: 'Feed Rex' (8:00 AM) overlaps with 'Clean Litter Box' (8:00 AM) - the owner can't be in two places at once.
+Warning: 'Walk Rex' (9:30 AM) overlaps with 'Brush Rex' (9:30 AM) - both scheduled for Rex.
+
+Tasks are sorted by priority, then due time, then duration.
+Monday: 8 task(s), 1 completed, 7 pending.
+Tuesday: 8 task(s), 1 completed, 7 pending.
+Wednesday: 8 task(s), 1 completed, 7 pending.
+Thursday: 8 task(s), 1 completed, 7 pending.
+Friday: 8 task(s), 1 completed, 7 pending.
+Saturday: 8 task(s), 1 completed, 7 pending.
+Sunday: 8 task(s), 1 completed, 7 pending.
+Warning: 14 scheduling conflict(s) detected.
+
 ```
 # Paste your pytest output here
+============================================================================================================ test session starts ============================================================================================================
+platform win32 -- Python 3.14.5, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\Lily Thai\Documents\Codepath Github\ai110-module2show-pawpal-starter
+plugins: anyio-4.13.0
+collected 17 items                                                                                                                                                                                                                           
+
+tests\test_pawpal.py .................                                                                                                                                                                                                 [100%]
+
+============================================================================================================ 17 passed in 0.06s =============================================================================================================
 ```
 
 ## 📐 Smarter Scheduling

@@ -388,13 +388,33 @@ class Scheduler:
         return conflicts
 
     @staticmethod
+    def _task_time_windows(task: Task) -> List[Tuple[datetime, datetime]]:
+        """Return a task's due-time window(s), anchored to a single reference day.
+
+        A task whose duration pushes it past midnight (e.g. due 11:30 PM for
+        60 minutes) still belongs to one schedule day, so it's split into the
+        late-night segment and the early-morning spillover segment - both
+        anchored to the same reference day as every other same-day task -
+        instead of letting the spillover land on a different calendar date
+        where it can no longer be compared correctly.
+        """
+        start = datetime.combine(datetime.min, task.get_due_time())
+        end = start + timedelta(minutes=task.duration_minutes)
+        midnight = datetime.combine(datetime.min, time.min) + timedelta(days=1)
+        if end <= midnight:
+            return [(start, end)]
+        return [(start, midnight), (midnight - timedelta(days=1), end - timedelta(days=1))]
+
+    @staticmethod
     def _windows_overlap(task_a: Task, task_b: Task) -> bool:
         """Return whether two tasks' due-time windows overlap."""
-        start_a = datetime.combine(datetime.min, task_a.get_due_time())
-        end_a = start_a + timedelta(minutes=task_a.duration_minutes)
-        start_b = datetime.combine(datetime.min, task_b.get_due_time())
-        end_b = start_b + timedelta(minutes=task_b.duration_minutes)
-        return start_a < end_b and start_b < end_a
+        windows_a = Scheduler._task_time_windows(task_a)
+        windows_b = Scheduler._task_time_windows(task_b)
+        return any(
+            start_a < end_b and start_b < end_a
+            for start_a, end_a in windows_a
+            for start_b, end_b in windows_b
+        )
 
     def get_conflict_warnings(self, day: Optional[str] = None) -> List[str]:
         """Return human-readable warning strings for overlapping tasks.
