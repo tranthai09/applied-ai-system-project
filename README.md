@@ -42,6 +42,25 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## ✨ Features
+
+- **Priority + time + duration sorting** — `Scheduler.create_daily_schedule()` orders each day's tasks by priority (high → medium → low) first, then by due time, then by duration, so the most important care needs surface at the top of the plan.
+- **Sort by time only** — `Scheduler.sort_by_time(day)` re-sorts a day chronologically by due time alone, ignoring priority, for a strict timeline view.
+- **Filtering** — `Scheduler.filter_tasks()` narrows a schedule by day, pet (instance or name), and completion status, applied cumulatively (AND) so views like "Rex's pending tasks on Monday" are one call.
+- **Conflict detection** — `Scheduler.get_conflicts()` does a pairwise scan of each day's due-time windows (accounting for task duration and midnight-spanning tasks) to flag overlaps, whether it's the same pet double-booked or two different pets needing the owner at once.
+- **Conflict warnings** — `Scheduler.get_conflict_warnings()` turns detected conflicts into human-readable messages (e.g. "'Walk Rex' (9:30 AM) overlaps with 'Brush Rex' (9:30 AM) - both scheduled for Rex."), surfaced in the Streamlit UI as `st.warning`/`st.success` banners.
+- **Daily & weekly recurrence** — `Task.mark_complete()` calls `Task.next_occurrence()` to automatically spawn the next instance of a task, advancing `due_date` by one day for `"daily"` tasks or one week for `"weekly"` tasks, so completing a task keeps it on the schedule going forward.
+- **Frequency-to-day mapping** — `Scheduler._days_for_task()` resolves a task's `frequency` field (daily, weekly, a specific weekday, or a comma-separated list of weekdays) into the set of weekday buckets it should appear in.
+- **Owner preference matching** — `Task.matches_owner_preference()` checks a task's preferred time of day against the pet's `preferred_time_of_day` (or general owner context when unassigned to a pet).
+- **Plan explanation** — `Scheduler.explain_plan()` summarizes the sorting rule used, per-day task/completion counts, and a rollup of any detected conflicts, in plain text.
+- **Completion tracking** — `Scheduler.get_completed_tasks()` / `get_incomplete_tasks()` and `Scheduler.track_task_duration()` report status and total scheduled minutes across every day a recurring task appears.
+
+## 📐 Class Diagram
+
+![PawPal+ UML class diagram](diagrams/uml_final.png)
+
+Source: [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd)
+
 ## 🖥️ Sample Output
 
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
@@ -187,12 +206,95 @@ tests\test_pawpal.py .................                                          
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### UI features
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+The Streamlit app (`app.py`) is organized top to bottom into:
+
+- **Owner & Pet** — enter the owner's name, age, gender, location, and years owned; add one or more pets (name, species, preferred time of day) via a form. Registered pets are listed in a table, and a dropdown selects which pet's tasks you're managing.
+- **Tasks** — add a task for the selected pet (title, duration in minutes, priority). The pet's current tasks are listed in a table showing duration, priority, and completion status.
+- **Build Schedule** — click "Generate schedule" to call `Owner.generate_daily_plan()`, which builds a full week of daily buckets. Once generated, you can:
+  - Toggle **Sort by**: "Priority (default)" vs. "Time only" (`Scheduler.sort_by_time()`).
+  - Filter by **Status** (all / completed / pending) and by **Pet**, both backed by `Scheduler.filter_tasks()`.
+  - See each day's plan as a table (title, pet, due time, priority, duration), with conflict banners above it.
+
+### Example workflow
+
+1. Enter owner info (e.g. "Jordan") and add a pet, "Rex" (dog, preferred time: morning).
+2. Select Rex, then add tasks: "Morning walk" (20 min, high priority), and a second task at the same time to see conflict detection in action.
+3. Click "Generate schedule" — the app builds a week of daily task buckets sorted by priority, then due time, then duration.
+4. View today's (or any weekday's) schedule in the table; switch the "Sort by" toggle to "Time only" to see the same tasks reordered chronologically instead of by priority.
+5. Filter down to just Rex's pending tasks using the Pet and Status dropdowns.
+
+### Key Scheduler behaviors shown
+
+- **Priority + time + duration sorting** — the default schedule view orders high-priority tasks first, then by due time, then by duration.
+- **Sort by time only** — the "Time only" toggle re-sorts a day strictly chronologically, ignoring priority.
+- **Filtering** — the Status and Pet dropdowns narrow the displayed tasks cumulatively (e.g. "Rex's pending tasks").
+- **Conflict warnings** — when two tasks' due-time windows overlap (same pet or different pets needing the owner at once), an `st.warning` banner names both tasks and explains why; days with no overlaps get an `st.success` confirmation instead.
+
+### Sample CLI output (`python main.py`)
+
+`main.py` seeds an owner with two pets (Rex the dog, Whiskers the cat) and several tasks — including one already completed and two intentional overlaps (same-pet and cross-pet) — then exercises sorting, filtering, and conflict detection directly against the `Scheduler`:
+
+```
+Today's Schedule (priority, then time, then duration)
+=====================================================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Today's Schedule (sorted by time only)
+======================================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Rex's Tasks Only
+================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Completed Tasks
+===============
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+
+Pending Tasks
+=============
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Conflict Check
+==============
+Warning: 'Feed Rex' (8:00 AM) overlaps with 'Clean Litter Box' (8:00 AM) - the owner can't be in two places at once.
+Warning: 'Walk Rex' (9:30 AM) overlaps with 'Brush Rex' (9:30 AM) - both scheduled for Rex.
+
+Tasks are sorted by priority, then due time, then duration.
+Monday: 8 task(s), 1 completed, 7 pending.
+Tuesday: 8 task(s), 1 completed, 7 pending.
+Wednesday: 8 task(s), 1 completed, 7 pending.
+Thursday: 8 task(s), 1 completed, 7 pending.
+Friday: 8 task(s), 1 completed, 7 pending.
+Saturday: 8 task(s), 1 completed, 7 pending.
+Sunday: 8 task(s), 1 completed, 7 pending.
+Warning: 14 scheduling conflict(s) detected.
+```
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

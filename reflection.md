@@ -50,6 +50,8 @@ One change that needs to be added is to state relationships explicitly such as f
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+Constraints that needed to be considered include time and priority of each task. The constraints that mattered the most are the ones that the scheduler needed to have to be able to generate the schedule. For example, owner pet time of day preference is needed to match so that we could resolve any scheduling conflicts as well. 
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
@@ -66,11 +68,14 @@ One tradeoff is that the scheudler builds the week as a repeating pattern rather
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+I used Claude to help me with all the above inlcudin gdesing, brainstorming, debugging, refactoring, and testing. The prompts that were helpful were the ones that were specific and gave examples to describe what is expected of the task. Using separate chat sessions help me be able to focus and revisit prompts as well as tasks I have asked it to do. It helps prevent repetition unintentionally.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
 
+I did not acccept the AI's suggestion when it didnt make sense to me or if it misunderstood what I wanted it to do. For example, when it didn't include some of the specific methods I wanted it to include, I had to manually tell them that I want to include such methods since it did not consider them.
 ---
 
 ## 4. Testing and Verification
@@ -80,10 +85,14 @@ One tradeoff is that the scheudler builds the week as a repeating pattern rather
 - What behaviors did you test?
 - Why were these tests important?
 
+I tested sorting, as well as basic behaviuors like flipping if a task is completed or if tasks are repeated. Edge cases are important to tests as well as functionality since it could break the app and ruin the user experience. 
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+I am fairly confident the schedueler works correctly and if I had more time, I would include testing if we combine tasks for multiple days like a Monday to Wednesday task. This is more realistic to think about. Another would be considering the removal of the pet or the task in testing.
 
 ---
 
@@ -93,10 +102,16 @@ One tradeoff is that the scheudler builds the week as a repeating pattern rather
 
 - What part of this project are you most satisfied with?
 
+I am most satisfied with the functionality of the app and how much more detailed it is than how it started. I learned a bit about Streamlit as well and it was cool to see how the code affects the UI a bit.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+I would improve to make it more UI friendly like allowing the user to check off the tasks for the day and let it update in real time. 
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+One important takeaway is that when working with AI, we need to think of edge cases and test thoroughly as there could be human decisions that the AI would not have thought of since it could be generalizing rather than think of specific cases. It is necessary to look at what the AI is adding to make it make sense to you.

@@ -1,0 +1,74 @@
+classDiagram
+    class Task {
+      +String title
+      +String type
+      +int durationMinutes
+      +String dueTime
+      +Date dueDate
+      +String frequency
+      +String ownerPreference
+      +bool isCompleted
+      +String priority
+      +Pet pet
+      +Owner owner
+      +markComplete() Task
+      +nextOccurrence() Task
+      +getDueTime() time
+      +matchesOwnerPreference(owner) bool
+    }
+
+    class Pet {
+      +String name
+      +String animalType
+      +String breed
+      +String preferredTimeOfDay
+      +List~String~ medications
+      +List~Task~ careNeeds
+      +addTask(task)
+      +doTask(task)
+    }
+
+    class Owner {
+      +String name
+      +int age
+      +String gender
+      +String location
+      +int yearsOwned
+      +List~Pet~ pets
+      +List~Task~ tasks
+      +ownsPets() bool
+      +getAllTasks() List~Task~
+      +completeTask(task)
+      +hasAvailability() bool
+      +setTaskPriority(task, priority)
+      +editTask(task, changes)
+      +addTask(task, pet)
+      +removeTask(task)
+      +addPet(pet)
+      +removePet(pet)
+      +generateDailyPlan() Scheduler
+    }
+
+    class Scheduler {
+      +List~String~ daysOfWeek
+      +Map~String, List~Task~~ dailyTasks
+      +createDailySchedule(owner, pet)
+      +sortByTime(day) List~Task~
+      +tasksDueOn(targetDate) List~Task~
+      +filterTasks(day, pet, petName, status) List~Task~
+      +getConflicts(day) List~Tuple~
+      +getConflictWarnings(day) List~String~
+      +explainPlan() String
+      +getCompletedTasks() List~Task~
+      +getIncompleteTasks() List~Task~
+      +trackTaskDuration(task) int
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Owner "1" --> "*" Task : manages (unassigned tasks)
+    Pet "1" --> "*" Task : careNeeds
+    Task "*" --> "0..1" Pet : pet
+    Task "*" --> "0..1" Owner : owner
+    Owner "1" ..> "1" Scheduler : generateDailyPlan() creates
+    Scheduler "1" --> "*" Task : dailyTasks buckets
+    Scheduler ..> Pet : filterTasks / conflicts reference

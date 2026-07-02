@@ -137,16 +137,51 @@ if st.button("Generate schedule"):
 
 if "scheduler" in st.session_state:
     scheduler: Scheduler = st.session_state.scheduler
-    st.text(scheduler.explain_plan())
+
+    st.success(scheduler.explain_plan())
+
+    st.markdown("#### View options")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        sort_mode = st.radio("Sort by", ["Priority (default)", "Time only"])
+    with col2:
+        status_filter = st.selectbox("Status", ["all", "completed", "pending"])
+    with col3:
+        pet_filter = st.selectbox("Pet", ["all"] + pet_names)
+
     for day in scheduler.days_of_week:
-        day_tasks = scheduler.daily_tasks.get(day, [])
-        if day_tasks:
-            st.write(f"**{day}**")
-            st.table(
-                [
-                    {"title": t.title, "priority": t.priority, "duration_minutes": t.duration_minutes}
-                    for t in day_tasks
-                ]
-            )
+        if sort_mode == "Time only":
+            scheduler.sort_by_time(day)
+
+        day_tasks = scheduler.filter_tasks(
+            day=day,
+            pet_name=None if pet_filter == "all" else pet_filter,
+            status=None if status_filter == "all" else status_filter,
+        )
+        if not day_tasks:
+            continue
+
+        st.write(f"**{day}**")
+
+        conflict_warnings = scheduler.get_conflict_warnings(day)
+        if conflict_warnings:
+            for warning in conflict_warnings:
+                st.warning(f"⚠️ {warning}")
+        else:
+            st.success("✅ No scheduling conflicts for this day.")
+
+        st.table(
+            [
+                {
+                    "title": t.title,
+                    "pet": t.pet.name if t.pet else "unassigned",
+                    "due_time": t.due_time or "—",
+                    "priority": t.priority,
+                    "duration_minutes": t.duration_minutes,
+                    "completed": t.is_completed,
+                }
+                for t in day_tasks
+            ]
+        )
 else:
     st.info("No schedule yet. Click 'Generate schedule' above.")
