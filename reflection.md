@@ -30,70 +30,16 @@ Scheduler -
 
     Methods: create a schedule of daily tasks for each pet, explain why the plan was chosen, track what tasks are completed and incomplete, track how long it takes to complete a task
 
-```mermaid
-classDiagram
-    class Owner {
-      +String name
-      +int age
-      +String gender
-      +String location
-      +int yearsOwned
-      +List~Pet~ pets
-      +List~Task~ tasks
-      +ownsPets()
-      +completeTask(task)
-      +hasAvailability()
-      +setTaskPriority(task, priority)
-      +editTask(task)
-      +addTask(task)
-      +removeTask(task)
-      +addPet(pet)
-      +removePet(pet)
-      +generateDailyPlan()
-    }
-
-    class Pet {
-      +String name
-      +String animalType
-      +String preferredTimeOfDay
-      +List~String~ medications
-      +List~Task~ careNeeds
-      +doTask(task)
-    }
-
-    class Task {
-      +String title
-      +String type
-      +int durationMinutes
-      +String dueTime
-      +String ownerPreference
-      +bool isCompleted
-      +String priority
-      +checkOffCompletion()
-      +matchesOwnerPreference(owner)
-    }
-
-    class Scheduler {
-      +List~String~ daysOfWeek
-      +Map~String, List~Task~~ dailyTasks
-      +createDailySchedule(owner, pet)
-      +explainPlan()
-      +getCompletedTasks()
-      +getIncompleteTasks()
-      +trackTaskDuration(task)
-    }
-
-    Owner --> "*" Pet : owns
-    Owner "1" --> "*" Task : manages
-    Scheduler --> Owner : schedules for
-    Scheduler --> Pet : plans for
-    Scheduler --> Task : orders
-```
-
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+Claude AI noted some main gaps between Task, Owner, and Pet but there is no clear ownership link between the three and the same task could exist in multiple places. The model does not define who owns a task so methods like complete, scheduling and preference matching will become ambiguous. The scheduler also only builds schedules for the first day and does not account for multiuple pets, days or time conflicts. 
+
+Some bottlenecks to consider are also to due_time is stored as a string which can be messy if we have more realistic formats for times like 10AM or 10:30AM. 
+
+One change that needs to be added is to state relationships explicitly such as for each Task, which owner or pet should it belong to. Each owner should manage its own tasks and each pet should manage its care needs. 
 
 ---
 
