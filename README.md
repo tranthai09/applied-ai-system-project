@@ -1,42 +1,98 @@
-# PawPal+ (Module 2 Project)
+# PawPal+
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+An AI-enhanced pet care scheduler: a deterministic Python scheduling engine, wrapped in a
+Streamlit UI, extended with a retrieval-augmented, agentic AI assistant that drafts new
+care tasks grounded in real care guidelines and self-corrects for scheduling conflicts
+before a human ever approves them.
 
-## Scenario
+## Original project (CodePath AI110, Modules 1–3)
 
-A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
+**PawPal+** started as a Module 2 class project: a Streamlit app that helps a pet owner
+plan care tasks for one or more pets. The original goal was to design a small object
+model (`Owner`, `Pet`, `Task`, `Scheduler`) from a UML diagram first, then implement
+deterministic scheduling logic on top of it — no AI involved. That original system takes
+an owner's tasks (walks, feeding, meds, grooming, etc.) and builds a weekly schedule that
+sorts by priority/time/duration, filters by day/pet/status, detects and explains
+overlapping time slots (including tasks that span midnight), and automatically spawns the
+next occurrence of daily/weekly recurring tasks when they're marked complete.
 
-- Track pet care tasks (walks, feeding, meds, enrichment, grooming, etc.)
-- Consider constraints (time available, priority, owner preferences)
-- Produce a daily plan and explain why it chose that plan
+Everything in this README past the "Architecture Overview" section describes what was
+added on top of that original system for the AI extension.
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
+## Title & Summary
 
-## What you will build
+**PawPal+: an AI-enhanced pet care scheduler.**
 
-Your final app should:
+Pet owners often know *what* their pet needs (a Golden Retriever needs daily exercise, a
+cat on medication needs a consistent dosing time) without knowing how to turn that into a
+concrete, conflict-free schedule. PawPal+'s rule-based core already builds and explains a
+weekly plan from tasks you give it. The AI layer on top closes the other half of the gap:
+given just a pet's species, breed, and medications, it retrieves relevant care guidance,
+asks an LLM to draft specific tasks grounded in that guidance, checks those drafts against
+the pet's real schedule for time conflicts, and hands the (human-approved) result back into
+the same scheduler — so the AI's output is never just text in a chat window, it's real
+`Task` objects flowing through the same logic as everything else in the app.
 
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
+## Architecture Overview
 
-## Getting started
+Full diagram: [`diagrams/ai_system_diagram.mmd`](diagrams/ai_system_diagram.mmd) (Mermaid
+flowchart). Core class model: [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd).
 
-### Setup
+```
+Input (pet/owner profile, existing schedule)
+   -> Retriever            care_knowledge.retrieve_guidelines()
+   -> Agent                CareAgent: Claude (grounded in retrieved text) or offline fallback
+   -> Guardrail/Validator  ai_agent._validate_draft() — bounds/type/enum checks
+   -> Agentic correction   ai_agent._resolve_conflicts() — reuses Scheduler's own conflict logic
+   -> Output               AgentResult -> Streamlit UI / CLI
+   -> Human review         user reads sources + warnings, clicks "Add these tasks" (or doesn't)
+   -> Testing/logging      pytest suite + pawpal_agent.log trace every stage above
+```
+
+In words: a pet's profile is scored against a small local knowledge base of care
+guidelines (the **retriever**); the top matches are handed to Claude as grounding context
+for a JSON-schema-constrained task-drafting request (the **agent**); every draft is
+validated against hard constraints before it can become a real `Task` (the **guardrail**);
+each validated draft is then checked against the pet's *existing* tasks and nudged forward
+in time until it stops colliding, using the exact same overlap check the rest of the
+scheduler uses (the **agentic self-correction** step); and only after a **human** reviews
+the drafted tasks and explicitly clicks "Add these tasks" do they become part of the real
+schedule. If the LLM call is unavailable or fails for any reason, the agent transparently
+falls back to a deterministic template-based draft built from the same retrieved
+guidelines, so the feature — and the app — never breaks.
+
+## Setup Instructions
 
 ```bash
+git clone <this-repo-url>
+cd project4
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Enabling the AI Care Assistant (optional)
+Run the CLI demo:
 
-The AI Care Assistant (see below) works out of the box with no setup — it falls back to a
-deterministic offline draft if no API key is configured. To enable real Claude-generated
-suggestions instead:
+```bash
+python main.py
+```
+
+Or launch the Streamlit app:
+
+```bash
+streamlit run app.py
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+### Enabling live Claude-generated suggestions (optional)
+
+The AI Care Assistant works with **zero setup** — it falls back to a deterministic offline
+draft if no API key is configured. To enable real Claude-generated suggestions instead:
 
 ```bash
 cp .env.example .env
@@ -44,60 +100,172 @@ cp .env.example .env
 # ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-That's it — `ai_agent.py` loads `.env` automatically. Run `streamlit run app.py` or
-`python main.py` either way; check `pawpal_agent.log` to see whether a run used the live
-LLM or the offline fallback, and why.
+`ai_agent.py` loads `.env` automatically — no other code changes needed. Either way, check
+`pawpal_agent.log` after a run to see whether it used the live LLM or the offline fallback,
+and why.
 
-### Suggested workflow
+## Sample Interactions
 
-1. Read the scenario carefully and identify requirements and edge cases.
-2. Draft a UML diagram (classes, attributes, methods, relationships).
-3. Convert UML into Python class stubs (no logic yet).
-4. Implement scheduling logic in small increments.
-5. Add tests to verify key behaviors.
-6. Connect your logic to the Streamlit UI in `app.py`.
-7. Refine UML so it matches what you actually built.
+These were captured directly from `CareAgent.plan_care_tasks()` (no API key configured in
+this environment, so they exercise the deterministic offline-fallback path — the same
+interface produces LLM-grounded rationale when `ANTHROPIC_API_KEY` is set; only the source
+of the draft changes, not the pipeline around it).
 
-## 🤖 AI Care Assistant
+**1. A dog with an empty schedule** — retrieval pulls dog-specific guidelines and drafts a
+starter routine:
 
-PawPal+ includes an AI feature combining **Retrieval-Augmented Generation** with an
-**agentic workflow**, fully integrated into the scheduling logic (not a side script):
+```
+Input:  Pet(name="Rex", animal_type="dog", breed="Golden Retriever",
+             preferred_time_of_day="morning"), no existing tasks
 
-1. **Retrieve** — `care_knowledge.retrieve_guidelines()` scores a small local knowledge base
-   of species/breed/situation-specific care guidelines (exercise, feeding, grooming, litter,
-   medication, senior/puppy care, etc.) against the selected pet's profile — animal type,
-   breed, preferred time of day, and medications.
-2. **Generate, grounded** — `CareAgent.plan_care_tasks()` (`ai_agent.py`) sends those
-   retrieved guidelines to Claude (`claude-opus-4-8`) with a JSON-schema-constrained request,
-   asking it to draft specific tasks *grounded in the retrieved text* rather than from
-   general knowledge.
-3. **Agentic self-correction** — each drafted task is checked against the pet's *existing*
-   schedule using `Scheduler`'s own conflict-detection logic, and any due-time collision is
-   nudged forward in 30-minute steps until it clears (or the agent gives up and surfaces a
-   warning) — the same conflict rule the rest of the app already enforces.
-4. **Guardrails** — every drafted task is validated (duration bounds, allowed
-   priority/frequency values, parseable due times) before it becomes a real `Task` object;
-   invalid fields are dropped and logged rather than crashing the app. If no API key is
-   configured, the LLM call fails, or the model refuses, the agent transparently falls back
-   to a deterministic template-based draft built from the same retrieved guidelines — the
-   feature (and the app) keeps working either way.
-5. **Logging** — every retrieval, LLM call/failure, validation rejection, and conflict nudge
-   is written to `pawpal_agent.log` for a full trace of what the assistant did and why.
+Output: used_llm=False
+        sources: ['Daily exercise for dogs (dog-exercise)',
+                   'Feeding schedule for dogs (dog-feeding)',
+                   'Grooming for dogs (dog-grooming)']
+        tasks:
+          - Walk       [exercise] due=8:00 AM  freq=daily  priority=high dur=30min
+          - Feed       [feeding]  due=7:00 AM  freq=daily  priority=high dur=10min
+          - Brush coat [grooming] due=6:00 PM  freq=weekly priority=low  dur=15min
+```
 
-In the Streamlit UI, click **"Suggest care tasks for `<pet>`"** to run the pipeline; the
-retrieved sources, the agent's explanation, and the drafted tasks appear with an
-**"Add these tasks"** button that registers them as real tasks and regenerates the schedule.
-`main.py` runs the same pipeline for Rex as part of its CLI demo.
+**2. A cat with a conflicting existing task** — this is the agentic self-correction step in
+action. Whiskers already has a 7:00–7:10 AM feeding task; the drafted "Feed" task would
+also default to 7:00 AM, so the agent nudges it forward until it clears:
 
-### System diagram
+```
+Input:  Pet(name="Whiskers", animal_type="cat", breed="Siamese",
+             preferred_time_of_day="evening"),
+        existing_tasks=[Task("Feed Whiskers", "feeding", 10, due_time="7:00 AM")]
 
-Source: [`diagrams/ai_system_diagram.mmd`](diagrams/ai_system_diagram.mmd) — traces the
-pipeline from input (pet/owner profile) through the retriever, the agent (with its
-LLM/offline-fallback branch), the validator/guardrail layer, and the agentic conflict
-resolver, out to the human-review gate (the "Add these tasks" approval step) and the
-automated-testing/logging layer that checks each stage's behavior.
+Output: used_llm=False
+        sources: ['Enrichment for indoor cats (cat-enrichment)',
+                   'Feeding schedule for cats (cat-feeding)',
+                   'Litter box maintenance for cats (cat-litter)']
+        tasks:
+          - Play session     [enrichment] due=5:00 PM freq=daily priority=medium dur=15min
+          - Feed             [feeding]    due=7:30 AM freq=daily priority=high   dur=5min   <- nudged from 7:00 AM
+          - Clean litter box [cleaning]   due=8:00 AM freq=daily priority=medium dur=10min
+```
 
-## ✨ Features
+**3. A senior dog on medication** — retrieval correctly prioritizes the senior-care
+guideline (it matches two profile terms: "senior" and "arthritis"), which outranks the
+generic dog guidelines and pushes the plain dog-feeding guideline out of the top 3:
+
+```
+Input:  Pet(name="Biscuit", animal_type="dog", breed="Senior Labrador",
+             medications=["arthritis medication"])
+
+Output: used_llm=False
+        sources: ['Care adjustments for senior pets (senior-pet)',
+                   'Daily exercise for dogs (dog-exercise)',
+                   'Feeding schedule for dogs (dog-feeding)']
+        tasks:
+          - Gentle walk [exercise] due=9:00 AM freq=daily priority=medium dur=15min
+          - Walk        [exercise] due=8:00 AM freq=daily priority=high   dur=30min
+          - Feed        [feeding]  due=7:00 AM freq=daily priority=high   dur=10min
+```
+
+(Note the medication guideline itself narrowly missed the top-3 cutoff here — see
+*Design Decisions* below for why that's a known, deliberate trade-off rather than a bug.)
+
+## Design Decisions
+
+- **The AI layer is additive, not a replacement for the rule-based core.** Every AI-drafted
+  task becomes an ordinary `Task` object and flows through the exact same `Scheduler` as
+  manually-entered tasks. Concretely, `_resolve_conflicts()` calls
+  `Scheduler._windows_overlap()` directly instead of reimplementing overlap logic, so "no
+  conflict" means the same thing everywhere in the app. Trade-off: the AI module is coupled
+  to the scheduler's internal (underscore-prefixed) methods, which is acceptable inside one
+  small codebase but wouldn't be the right call for a library boundary.
+- **Keyword retrieval instead of embeddings/a vector store.** The knowledge base is a
+  couple dozen short documents, so exact whole-word matching against the pet's profile
+  terms is enough — it costs no extra dependencies, needs no index to build, and is fully
+  deterministic offline. Trade-off: recall is exact-word based, not semantic. This was not
+  theoretical — an early version matched keywords as *substrings* in either direction,
+  which let `"old"` silently match inside `"golden"` (as in "Golden Retriever") and pull in
+  an irrelevant senior-pet guideline for a young dog. A test written specifically to check
+  retrieval relevance caught it immediately; the fix was switching to exact whole-word
+  matching (see `care_knowledge.retrieve_guidelines`).
+- **`top_k=3` with alphabetical tie-breaking on equal score.** Deterministic ordering
+  matters more here than "smartest possible pick," because the offline fallback path has to
+  reproduce the same drafts every time with no LLM involved. The visible cost of that
+  choice shows up in Sample Interaction 3 above: the medication guideline scores equally
+  with two generic dog guidelines and loses the alphabetical tie-break, so it's dropped from
+  the top 3 even though it's arguably just as relevant. A production version would probably
+  rank by score first and use recency or specificity as the tie-break instead of `doc_id`.
+- **JSON-schema-constrained LLM output** (`output_config.format` on the Claude request)
+  instead of asking for free text and parsing it. This removes an entire class of "the
+  model almost gave me valid JSON" bugs and lets `_validate_draft()` focus purely on
+  business-rule checks (duration bounds, allowed priority/frequency values) rather than
+  defensive parsing.
+- **Fail open to the offline fallback, always.** `_call_llm()` wraps the entire API call in
+  a broad `try/except` and treats *any* failure — no key configured, network error, rate
+  limit, or an explicit model refusal — identically: log it and fall back to
+  `_fallback_tasks()`, which builds drafts from the same retrieved guidelines' templates.
+  This was a deliberate choice over checking for an API key up front, because it means the
+  feature degrades gracefully for a whole class of failures I can't fully enumerate ahead of
+  time, not just the "no key" case.
+- **A human always approves before anything changes the real schedule.** The Streamlit UI
+  shows the drafted tasks, their sources, and any unresolved conflict warnings, but only
+  registers them as real tasks (and regenerates the schedule) when the user clicks "Add
+  these tasks." The trade-off is one extra click; the benefit is that no AI-drafted task can
+  silently alter a pet's actual care schedule.
+- **Plain-file logging over a full observability stack.** Every retrieval, LLM call/
+  failure, validation rejection, and conflict nudge is written to `pawpal_agent.log`. That's
+  a deliberately low-tech choice — good enough to answer "what did the assistant actually do
+  and why" for a project this size, without pulling in a logging/metrics service that would
+  be overkill here.
+
+## Testing Summary
+
+```bash
+pytest        # 30 passed
+```
+
+- **17 tests** (`tests/test_pawpal.py`, from the original project) cover the core
+  scheduler: chronological sorting with mixed time formats, priority-before-time ordering,
+  daily/weekly recurrence, conflict detection (including identical times, near-misses,
+  midnight-spanning overlaps, and completed tasks being excluded), and edge cases like a
+  pet with no tasks or an owner with no pets.
+- **13 tests** (`tests/test_ai_agent.py`, new for the AI layer) cover: retrieval relevance
+  per species and for a pet on medication, retrieval returning nothing for a blank profile,
+  draft validation (accepting well-formed drafts, rejecting missing titles and out-of-bounds
+  durations, defaulting unknown priorities, dropping unparseable due times), conflict
+  nudging (both the conflicting and the non-conflicting case), and two end-to-end tests that
+  run the full offline-fallback pipeline and assert every produced task is within bounds and
+  free of the input conflict.
+- **What worked well:** writing the retrieval tests *before* trusting the retrieval logic
+  paid off immediately — see the "old"/"golden" substring bug described in *Design
+  Decisions*. It was caught by a test, not by manually eyeballing output.
+- **What I'd test next:** the tests exercise the offline-fallback path exclusively, since
+  this environment has no API key configured — the live-LLM code path (`_call_llm`) is
+  covered structurally (the JSON schema, the `stop_reason == "refusal"` check, the broad
+  exception handling) but isn't asserted against a mocked Claude response. Mocking the
+  `anthropic` client to test malformed-JSON and refusal handling directly is the natural
+  next test to add.
+- **Manual verification:** ran `python main.py` end-to-end (confirmed the CLI's AI section
+  logs correctly and produces conflict-free suggestions) and smoke-tested
+  `streamlit run app.py` (loads with no server-side exceptions, "Suggest care tasks" and
+  "Add these tasks" both work in the browser).
+
+## Reflection
+
+Building the AI layer on top of an already-working rule-based system clarified something
+I hadn't fully internalized before: an AI feature is only as trustworthy as the guardrails
+around it, not the model itself. The most useful design decisions here weren't about
+prompting — they were about what happens *before* the LLM is called (retrieval scoping) and
+*after* it responds (schema-constrained output, field validation, conflict re-checking, and
+a human approval step). Given the choice, "make it grounded and recoverable" beat "make the
+prompt clever" every time. The substring-matching bug was also a good reminder that testing
+the deterministic, non-AI parts of an AI pipeline (retrieval scoring, validation rules) is
+just as important as testing the AI call itself — most of the bugs I actually hit were in
+that "boring" surrounding code, not in anything Claude generated.
+
+(The graded responsible-AI reflection — how I collaborated with AI tools while building
+this, one helpful and one flawed AI suggestion I encountered, and this system's known
+limitations — is in `model_card.md`, not here.)
+
+## ✨ Core Scheduler Features (original project)
 
 - **Priority + time + duration sorting** — `Scheduler.create_daily_schedule()` orders each day's tasks by priority (high → medium → low) first, then by due time, then by duration, so the most important care needs surface at the top of the plan.
 - **Sort by time only** — `Scheduler.sort_by_time(day)` re-sorts a day chronologically by due time alone, ignoring priority, for a strict timeline view.
@@ -115,241 +283,3 @@ automated-testing/logging layer that checks each stage's behavior.
 ![PawPal+ UML class diagram](diagrams/uml_final.png)
 
 Source: [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd)
-
-## 🖥️ Sample Output
-
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
-
-```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
-```
-
-```
-Today's Schedule
-================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 7:30 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Tasks are sorted by priority, then due time, then duration.
-Monday: 6 task(s), 0 completed, 6 pending.
-Tuesday: 6 task(s), 0 completed, 6 pending.
-Wednesday: 6 task(s), 0 completed, 6 pending.
-Thursday: 6 task(s), 0 completed, 6 pending.
-Friday: 6 task(s), 0 completed, 6 pending.
-Saturday: 6 task(s), 0 completed, 6 pending.
-Sunday: 6 task(s), 0 completed, 6 pending.
-```
-
-## 🧪 Testing PawPal+
-
-```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
-
-# Bash command
-python -m pytest
-
-
-The tests in `tests/test_pawpal.py` cover the core scheduling behaviors:
-
-- **Sorting** — tasks are ordered chronologically by due time (handling mixed time formats and missing times), with priority taking precedence over time.
-- **Recurrence** — completing a daily task spawns a new occurrence due the next day, completing a weekly task spawns one due the next week, and one-off tasks don't recur.
-- **Conflict detection** — overlapping due times (including identical times and overlaps spanning midnight) are flagged, back-to-back tasks are not, and completed tasks are excluded from conflict checks.
-- **Edge cases** — a pet with no tasks, an owner with no pets/tasks, and generating an explanation before any schedule exists.
-
-
-```
-
-Confidence Level: 5 stars
-
-
-Sample test output:
-
-Today's Schedule (priority, then time, then duration)
-=====================================================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Today's Schedule (sorted by time only)
-======================================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Rex's Tasks Only
-================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Completed Tasks
-===============
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-
-Pending Tasks
-=============
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Conflict Check
-==============
-Warning: 'Feed Rex' (8:00 AM) overlaps with 'Clean Litter Box' (8:00 AM) - the owner can't be in two places at once.
-Warning: 'Walk Rex' (9:30 AM) overlaps with 'Brush Rex' (9:30 AM) - both scheduled for Rex.
-
-Tasks are sorted by priority, then due time, then duration.
-Monday: 8 task(s), 1 completed, 7 pending.
-Tuesday: 8 task(s), 1 completed, 7 pending.
-Wednesday: 8 task(s), 1 completed, 7 pending.
-Thursday: 8 task(s), 1 completed, 7 pending.
-Friday: 8 task(s), 1 completed, 7 pending.
-Saturday: 8 task(s), 1 completed, 7 pending.
-Sunday: 8 task(s), 1 completed, 7 pending.
-Warning: 14 scheduling conflict(s) detected.
-
-```
-# Paste your pytest output here
-============================================================================================================ test session starts ============================================================================================================
-platform win32 -- Python 3.14.5, pytest-9.0.3, pluggy-1.6.0
-rootdir: C:\Users\Lily Thai\Documents\Codepath Github\ai110-module2show-pawpal-starter
-plugins: anyio-4.13.0
-collected 17 items                                                                                                                                                                                                                           
-
-tests\test_pawpal.py .................                                                                                                                                                                                                 [100%]
-
-============================================================================================================ 17 passed in 0.06s =============================================================================================================
-```
-
-## 📐 Smarter Scheduling
-
-> Fill in once you've implemented scheduling logic.
-
-| Feature | Method(s) | Notes |
-|---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
-
-## 📸 Demo Walkthrough
-
-### UI features
-
-The Streamlit app (`app.py`) is organized top to bottom into:
-
-- **Owner & Pet** — enter the owner's name, age, gender, location, and years owned; add one or more pets (name, species, preferred time of day) via a form. Registered pets are listed in a table, and a dropdown selects which pet's tasks you're managing.
-- **Tasks** — add a task for the selected pet (title, duration in minutes, priority). The pet's current tasks are listed in a table showing duration, priority, and completion status.
-- **Build Schedule** — click "Generate schedule" to call `Owner.generate_daily_plan()`, which builds a full week of daily buckets. Once generated, you can:
-  - Toggle **Sort by**: "Priority (default)" vs. "Time only" (`Scheduler.sort_by_time()`).
-  - Filter by **Status** (all / completed / pending) and by **Pet**, both backed by `Scheduler.filter_tasks()`.
-  - See each day's plan as a table (title, pet, due time, priority, duration), with conflict banners above it.
-
-### Example workflow
-
-1. Enter owner info (e.g. "Jordan") and add a pet, "Rex" (dog, preferred time: morning).
-2. Select Rex, then add tasks: "Morning walk" (20 min, high priority), and a second task at the same time to see conflict detection in action.
-3. Click "Generate schedule" — the app builds a week of daily task buckets sorted by priority, then due time, then duration.
-4. View today's (or any weekday's) schedule in the table; switch the "Sort by" toggle to "Time only" to see the same tasks reordered chronologically instead of by priority.
-5. Filter down to just Rex's pending tasks using the Pet and Status dropdowns.
-
-### Key Scheduler behaviors shown
-
-- **Priority + time + duration sorting** — the default schedule view orders high-priority tasks first, then by due time, then by duration.
-- **Sort by time only** — the "Time only" toggle re-sorts a day strictly chronologically, ignoring priority.
-- **Filtering** — the Status and Pet dropdowns narrow the displayed tasks cumulatively (e.g. "Rex's pending tasks").
-- **Conflict warnings** — when two tasks' due-time windows overlap (same pet or different pets needing the owner at once), an `st.warning` banner names both tasks and explains why; days with no overlaps get an `st.success` confirmation instead.
-
-### Sample CLI output (`python main.py`)
-
-`main.py` seeds an owner with two pets (Rex the dog, Whiskers the cat) and several tasks — including one already completed and two intentional overlaps (same-pet and cross-pet) — then exercises sorting, filtering, and conflict detection directly against the `Scheduler`:
-
-```
-Today's Schedule (priority, then time, then duration)
-=====================================================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Today's Schedule (sorted by time only)
-======================================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Rex's Tasks Only
-================
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Completed Tasks
-===============
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
-
-Pending Tasks
-=============
-- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
-- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
-- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
-- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
-- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
-- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
-- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
-
-Conflict Check
-==============
-Warning: 'Feed Rex' (8:00 AM) overlaps with 'Clean Litter Box' (8:00 AM) - the owner can't be in two places at once.
-Warning: 'Walk Rex' (9:30 AM) overlaps with 'Brush Rex' (9:30 AM) - both scheduled for Rex.
-
-Tasks are sorted by priority, then due time, then duration.
-Monday: 8 task(s), 1 completed, 7 pending.
-Tuesday: 8 task(s), 1 completed, 7 pending.
-Wednesday: 8 task(s), 1 completed, 7 pending.
-Thursday: 8 task(s), 1 completed, 7 pending.
-Friday: 8 task(s), 1 completed, 7 pending.
-Saturday: 8 task(s), 1 completed, 7 pending.
-Sunday: 8 task(s), 1 completed, 7 pending.
-Warning: 14 scheduling conflict(s) detected.
-```
-
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
