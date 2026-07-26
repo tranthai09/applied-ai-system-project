@@ -1,5 +1,6 @@
 import streamlit as st
 from pawpal_system import Task, Pet, Owner, Scheduler
+from ai_agent import CareAgent
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -127,6 +128,62 @@ if pet.care_needs:
     )
 else:
     st.info("No tasks yet. Add one above.")
+
+st.divider()
+
+st.subheader("🤖 AI Care Assistant")
+st.caption(
+    "Retrieves species/breed-specific care guidelines, asks Claude to draft tasks "
+    "grounded in them, then checks the drafts against this pet's existing schedule "
+    "and nudges any conflicting times before showing them to you. Falls back to a "
+    "deterministic offline draft if no API key is configured or the call fails — "
+    "see pawpal_agent.log for what happened."
+)
+
+if "care_agent" not in st.session_state:
+    st.session_state.care_agent = CareAgent()
+care_agent = st.session_state.care_agent
+
+if st.button(f"Suggest care tasks for {pet.name}"):
+    st.session_state.agent_result = care_agent.plan_care_tasks(
+        pet=pet, owner=owner, existing_tasks=pet.care_needs
+    )
+
+agent_result = st.session_state.get("agent_result")
+if agent_result is not None:
+    if agent_result.used_llm:
+        st.success(agent_result.explanation)
+    else:
+        st.info(agent_result.explanation)
+
+    if agent_result.sources:
+        st.caption("Retrieved guidelines: " + "; ".join(agent_result.sources))
+
+    for warning in agent_result.warnings:
+        st.warning(warning)
+
+    if agent_result.tasks:
+        st.table(
+            [
+                {
+                    "title": t.title,
+                    "type": t.type,
+                    "duration_minutes": t.duration_minutes,
+                    "due_time": t.due_time or "—",
+                    "frequency": t.frequency,
+                    "priority": t.priority,
+                }
+                for t in agent_result.tasks
+            ]
+        )
+        if st.button(f"Add these {len(agent_result.tasks)} task(s) to {pet.name}'s schedule"):
+            for task in agent_result.tasks:
+                pet.add_task(task)
+            st.session_state.scheduler = owner.generate_daily_plan()
+            st.session_state.agent_result = None
+            st.rerun()
+    else:
+        st.info("No task suggestions were generated.")
 
 st.divider()
 

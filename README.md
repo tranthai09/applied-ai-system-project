@@ -32,6 +32,22 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Enabling the AI Care Assistant (optional)
+
+The AI Care Assistant (see below) works out of the box with no setup — it falls back to a
+deterministic offline draft if no API key is configured. To enable real Claude-generated
+suggestions instead:
+
+```bash
+cp .env.example .env
+# then edit .env and set:
+# ANTHROPIC_API_KEY=sk-ant-...
+```
+
+That's it — `ai_agent.py` loads `.env` automatically. Run `streamlit run app.py` or
+`python main.py` either way; check `pawpal_agent.log` to see whether a run used the live
+LLM or the offline fallback, and why.
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
@@ -41,6 +57,37 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+## 🤖 AI Care Assistant
+
+PawPal+ includes an AI feature combining **Retrieval-Augmented Generation** with an
+**agentic workflow**, fully integrated into the scheduling logic (not a side script):
+
+1. **Retrieve** — `care_knowledge.retrieve_guidelines()` scores a small local knowledge base
+   of species/breed/situation-specific care guidelines (exercise, feeding, grooming, litter,
+   medication, senior/puppy care, etc.) against the selected pet's profile — animal type,
+   breed, preferred time of day, and medications.
+2. **Generate, grounded** — `CareAgent.plan_care_tasks()` (`ai_agent.py`) sends those
+   retrieved guidelines to Claude (`claude-opus-4-8`) with a JSON-schema-constrained request,
+   asking it to draft specific tasks *grounded in the retrieved text* rather than from
+   general knowledge.
+3. **Agentic self-correction** — each drafted task is checked against the pet's *existing*
+   schedule using `Scheduler`'s own conflict-detection logic, and any due-time collision is
+   nudged forward in 30-minute steps until it clears (or the agent gives up and surfaces a
+   warning) — the same conflict rule the rest of the app already enforces.
+4. **Guardrails** — every drafted task is validated (duration bounds, allowed
+   priority/frequency values, parseable due times) before it becomes a real `Task` object;
+   invalid fields are dropped and logged rather than crashing the app. If no API key is
+   configured, the LLM call fails, or the model refuses, the agent transparently falls back
+   to a deterministic template-based draft built from the same retrieved guidelines — the
+   feature (and the app) keeps working either way.
+5. **Logging** — every retrieval, LLM call/failure, validation rejection, and conflict nudge
+   is written to `pawpal_agent.log` for a full trace of what the assistant did and why.
+
+In the Streamlit UI, click **"Suggest care tasks for `<pet>`"** to run the pipeline; the
+retrieved sources, the agent's explanation, and the drafted tasks appear with an
+**"Add these tasks"** button that registers them as real tasks and regenerates the schedule.
+`main.py` runs the same pipeline for Rex as part of its CLI demo.
 
 ## ✨ Features
 

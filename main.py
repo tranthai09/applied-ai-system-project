@@ -1,3 +1,4 @@
+from ai_agent import CareAgent
 from pawpal_system import Task, Pet, Owner
 
 
@@ -77,6 +78,17 @@ def main() -> None:
     print()
 
     print(scheduler.explain_plan())
+
+    print()
+    print("AI Care Assistant (Rex)")
+    print("=======================")
+    agent = CareAgent()
+    result = agent.plan_care_tasks(pet=dog, owner=owner, existing_tasks=dog.care_needs)
+    print(f"[{'LLM' if result.used_llm else 'offline fallback'}] {result.explanation}")
+    for warning in result.warnings:
+        print(f"Warning: {warning}")
+    print_tasks("Suggested tasks", result.tasks)
+    print("(See pawpal_agent.log for the full retrieval/generation trace.)")
 
 
 if __name__ == "__main__":
