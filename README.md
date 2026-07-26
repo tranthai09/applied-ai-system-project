@@ -89,6 +89,14 @@ retrieved sources, the agent's explanation, and the drafted tasks appear with an
 **"Add these tasks"** button that registers them as real tasks and regenerates the schedule.
 `main.py` runs the same pipeline for Rex as part of its CLI demo.
 
+### System diagram
+
+Source: [`diagrams/ai_system_diagram.mmd`](diagrams/ai_system_diagram.mmd) — traces the
+pipeline from input (pet/owner profile) through the retriever, the agent (with its
+LLM/offline-fallback branch), the validator/guardrail layer, and the agentic conflict
+resolver, out to the human-review gate (the "Add these tasks" approval step) and the
+automated-testing/logging layer that checks each stage's behavior.
+
 ## ✨ Features
 
 - **Priority + time + duration sorting** — `Scheduler.create_daily_schedule()` orders each day's tasks by priority (high → medium → low) first, then by due time, then by duration, so the most important care needs surface at the top of the plan.

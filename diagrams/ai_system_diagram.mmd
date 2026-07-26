@@ -1,0 +1,71 @@
+flowchart TD
+    subgraph INPUT["Input"]
+        A1["Pet + Owner profile\n(species, breed, meds,\npreferred time of day)"]
+        A2["Existing schedule\n(pet.care_needs)"]
+        A3["Optional free-text query"]
+    end
+
+    subgraph RETRIEVE["Retriever — care_knowledge.py"]
+        B1["retrieve_guidelines()\nscore CARE_GUIDELINES by\nkeyword overlap with pet profile"]
+        B2[("CARE_GUIDELINES\nlocal knowledge base")]
+    end
+
+    subgraph AGENT["Agent — ai_agent.py: CareAgent"]
+        C1["_build_prompt()\ngrounds prompt in retrieved\nguideline text"]
+        C2{"Claude API\navailable & succeeds?"}
+        C3["_call_llm()\nclaude-opus-4-8, JSON-schema\nconstrained output"]
+        C4["_fallback_tasks()\ndeterministic templates from\nthe SAME retrieved guidelines"]
+    end
+
+    subgraph GUARDRAILS["Guardrails / Validator"]
+        D1["_validate_draft()\nduration bounds, allowed\npriority/frequency, parseable\ndue_time — invalid drafts\ndropped, not crashed on"]
+    end
+
+    subgraph CORRECT["Agentic self-correction"]
+        E1["_resolve_conflicts()\nreuses Scheduler._windows_overlap()\nnudges due_time +30min until clear\n(or logs a warning)"]
+    end
+
+    subgraph OUTPUT["Output"]
+        F1["AgentResult\n(tasks, explanation,\nsources, warnings, used_llm)"]
+        F2["Streamlit UI (app.py)\nCLI demo (main.py)"]
+    end
+
+    subgraph HUMAN["Human review"]
+        G1["User reads suggested tasks,\nsources, and warnings"]
+        G2{"User clicks\n'Add these tasks'?"}
+        G3["Tasks registered as real\nTask objects; schedule\nregenerated"]
+        G4["Suggestions discarded\n(no schedule change)"]
+    end
+
+    subgraph TEST["Automated testing (guardrail layer)"]
+        H1["tests/test_ai_agent.py\nretrieval relevance,\ndraft validation, conflict\nnudging, offline fallback"]
+        H2["pawpal_agent.log\nfull retrieval / LLM / validation\n/ conflict trace for auditing"]
+    end
+
+    A1 --> B1
+    A2 --> B1
+    A3 --> B1
+    B2 --> B1
+    B1 -->|"retrieved CareGuideline docs"| C1
+    C1 --> C2
+    C2 -->|yes| C3
+    C2 -->|"no / error / refusal"| C4
+    C3 --> D1
+    C4 --> D1
+    D1 -->|"validated Task drafts"| E1
+    A2 -.->|"checked against"| E1
+    E1 --> F1
+    F1 --> F2
+    F2 --> G1
+    G1 --> G2
+    G2 -->|yes| G3
+    G2 -->|no| G4
+
+    B1 -.-> H2
+    C3 -.-> H2
+    D1 -.-> H2
+    E1 -.-> H2
+    H1 -.->|"verifies behavior of"| B1
+    H1 -.->|"verifies behavior of"| D1
+    H1 -.->|"verifies behavior of"| E1
+    H1 -.->|"verifies behavior of"| C4
