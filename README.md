@@ -248,6 +248,38 @@ pytest        # 30 passed
   `streamlit run app.py` (loads with no server-side exceptions, "Suggest care tasks" and
   "Add these tasks" both work in the browser).
 
+### Reliability evaluation (behavioral, end-to-end)
+
+Unit tests check individual functions in isolation; `evaluate_care_agent.py` is a separate
+harness that runs the *full* `plan_care_tasks()` pipeline end-to-end across six
+representative scenarios — including two deliberate edge cases (an unknown species outside
+the knowledge base, and a request capped at `max_tasks=1`) — and checks each result against
+a human-readable pass/fail criterion. It always runs the offline fallback path (no API key
+needed) so results are deterministic and reproducible:
+
+```bash
+python evaluate_care_agent.py
+```
+
+**Summary:** 6 out of 6 reliability checks passed (100%) against the offline-fallback
+pipeline. Full, regenerable report: [`eval_results.md`](eval_results.md).
+
+| Scenario | Evaluation Criteria | Result |
+|---|---|---|
+| Dog, empty schedule | Produces >=1 grounded, in-bounds task from retrieved sources | Pass |
+| Cat, conflicting existing task | No drafted task collides with the existing 7:00 AM task | Pass |
+| Senior dog on medication | Retrieves the senior-pet guideline, not just generic dog guidelines | Pass |
+| Unknown species (iguana) | Handles a species outside the knowledge base gracefully (no crash, no fabrication) | Pass |
+| max_tasks is respected | Requesting max_tasks=1 drafts at most 1 task | Pass |
+| Offline fallback path actually runs | used_llm is False when the client is unavailable | Pass |
+
+A clean 6/6 here is expected, not a coincidence — it's checking the same guardrails
+described in *Design Decisions* (bounds validation, conflict resolution, graceful handling
+of no-match retrieval) rather than the LLM's judgment, which isn't exercised in this
+offline-only harness. That gap — no automated check yet compares an actual live-LLM
+response against these criteria — is the same one called out above and in
+`model_card.md`.
+
 ## Reflection
 
 Building the AI layer on top of an already-working rule-based system clarified something

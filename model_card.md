@@ -104,6 +104,14 @@ shows up under a test built to check the *intent*, not just "does it run."
   blank profile, draft validation (accept/reject/default cases), conflict
   nudging (conflicting and non-conflicting cases), and two end-to-end tests
   of the full offline-fallback pipeline.
+- A separate behavioral evaluation harness, `evaluate_care_agent.py`, runs the
+  full `plan_care_tasks()` pipeline end-to-end across 6 representative
+  scenarios (including two edge cases: an unrecognized species and a
+  `max_tasks=1` request) and checks each against a human-readable pass/fail
+  criterion, writing a markdown report to `eval_results.md`. Current result:
+  **6/6 passed**. This is a deterministic, offline check of the guardrails
+  (bounds validation, conflict resolution, graceful no-match handling) — it
+  does not evaluate the live LLM's judgment, only the surrounding system.
 - **Not yet evaluated:** the live-LLM response path is not exercised against
   a mocked `anthropic` client, so malformed-JSON handling and the
   `stop_reason == "refusal"` branch are covered structurally (the code exists
