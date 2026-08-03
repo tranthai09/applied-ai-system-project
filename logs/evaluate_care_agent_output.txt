@@ -1,0 +1,9 @@
+6 out of 6 reliability checks passed (100%) against the offline-fallback pipeline.
+[Pass] Dog, empty schedule - Produces >=1 grounded, in-bounds task from retrieved sources :: 3 task(s), 3 source(s), all within bounds
+[Pass] Cat, conflicting existing task - No drafted task collides with the existing 7:00 AM task :: no drafted task collides with the pet's existing 7:00 AM task
+[Pass] Senior dog on medication - Retrieves the senior-pet guideline, not just generic dog guidelines :: senior-pet guideline retrieved among: ['Care adjustments for senior pets (senior-pet)', 'Daily exercise for dogs (dog-exercise)', 'Feeding schedule for dogs (dog-feeding)']
+[Pass] Unknown species (iguana) - Handles a species outside the knowledge base gracefully (no crash, no fabrication) :: returned an empty, explained result instead of crashing or guessing
+[Pass] max_tasks is respected - Requesting max_tasks=1 drafts at most 1 task :: 1 task(s) drafted, within the requested max_tasks=1
+[Pass] Offline fallback path actually runs - used_llm is False when the client is unavailable :: used_llm=False, confirming the offline fallback path actually ran
+
+Full report written to eval_results.md

@@ -1,0 +1,69 @@
+Today's Schedule (priority, then time, then duration)
+=====================================================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Today's Schedule (sorted by time only)
+======================================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Rex's Tasks Only
+================
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Completed Tasks
+===============
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, done)
+
+Pending Tasks
+=============
+- 8:00 AM | Feed Rex [dog, Golden Retriever] (10 min, priority=high, pending)
+- 8:00 AM | Clean Litter Box [cat, Siamese] (10 min, priority=medium, pending)
+- 9:30 AM | Walk Rex [dog, Golden Retriever] (30 min, priority=medium, pending)
+- 9:30 AM | Brush Rex [dog, Golden Retriever] (15 min, priority=low, pending)
+- 5:00 PM | Play with Whiskers [cat, Siamese] (15 min, priority=low, pending)
+- 6:00 PM | Feed Whiskers [cat, Siamese] (5 min, priority=high, pending)
+- 7:00 PM | Groom Rex [dog, Golden Retriever] (20 min, priority=low, pending)
+
+Conflict Check
+==============
+Warning: 'Feed Rex' (8:00 AM) overlaps with 'Clean Litter Box' (8:00 AM) - the owner can't be in two places at once.
+Warning: 'Walk Rex' (9:30 AM) overlaps with 'Brush Rex' (9:30 AM) - both scheduled for Rex.
+
+Tasks are sorted by priority, then due time, then duration.
+Monday: 8 task(s), 1 completed, 7 pending.
+Tuesday: 8 task(s), 1 completed, 7 pending.
+Wednesday: 8 task(s), 1 completed, 7 pending.
+Thursday: 8 task(s), 1 completed, 7 pending.
+Friday: 8 task(s), 1 completed, 7 pending.
+Saturday: 8 task(s), 1 completed, 7 pending.
+Sunday: 8 task(s), 1 completed, 7 pending.
+Warning: 14 scheduling conflict(s) detected.
+
+AI Care Assistant (Rex)
+=======================
+[offline fallback] Used offline template fallback (no LLM available) to draft 3 task(s) for Rex from 3 retrieved guideline(s).
+Suggested tasks
+===============
+- 8:30 AM | Walk [unassigned] (30 min, priority=high, pending)
+- 7:00 AM | Feed [unassigned] (10 min, priority=high, pending)
+- 6:00 PM | Brush coat [unassigned] (15 min, priority=low, pending)
+
+(See pawpal_agent.log for the full retrieval/generation trace.)

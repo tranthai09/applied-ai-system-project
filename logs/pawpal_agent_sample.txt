@@ -1,0 +1,3 @@
+2026-07-30 21:26:17,251 INFO Anthropic client unavailable, will use offline fallback: No module named 'anthropic'
+2026-07-30 21:26:17,252 INFO Retrieved 3 guideline(s) for Rex: ['dog-exercise', 'dog-feeding', 'dog-grooming']
+2026-07-30 21:26:17,255 INFO Used offline template fallback (no LLM available) to draft 3 task(s) for Rex from 3 retrieved guideline(s).
