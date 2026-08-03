@@ -80,8 +80,16 @@ python main.py
 Or launch the Streamlit app:
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
 ```
+
+> Using `python -m streamlit` instead of a bare `streamlit` command is deliberate, not a
+> typo: on some setups (especially Windows, or a venv that isn't fully activated) pip
+> installs the `streamlit` package but its `streamlit.exe` launcher script isn't on `PATH`,
+> so the bare `streamlit run app.py` command fails with "not recognized"/"command not
+> found" even though Streamlit is installed correctly. `python -m streamlit run app.py`
+> always works, because it just asks the same Python interpreter that has the package
+> installed to run it as a module.
 
 Run the test suite:
 
